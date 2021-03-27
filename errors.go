@@ -1,4 +1,4 @@
-package customErrors
+package errors
 
 import (
 	"fmt"
@@ -19,7 +19,7 @@ func (c *customErrs) GetErrs() []CustomError {
 	return c.errSlice
 }
 
-// Error error interface
+// Error represent string value of customErrs
 func (c *customErrs) Error() string {
 	var errors []string
 	for k := range c.errSlice {
@@ -30,7 +30,17 @@ func (c *customErrs) Error() string {
 
 // IsEmpty return:
 // true if errors slice is empty
-// false if there are any errors
+// false if there are any errors in it
 func (c *customErrs) IsEmpty() bool {
 	return len(c.errSlice) == 0
+}
+
+// isErrorExist checks if there is an error with the specified parameters in the errors slice
+func (c *customErrs) isErrorExist(code ErrorCode, level ErrorDataLevel) bool {
+	for _, v := range c.errSlice {
+		if v.GetDataLevel() == level && v.GetCode() == code {
+			return true
+		}
+	}
+	return false
 }
