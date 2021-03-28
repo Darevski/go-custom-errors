@@ -19,6 +19,15 @@ const (
 	Transport   ErrorDataLevel = 105
 )
 
+const (
+	Debug    ErrorSeverity = 0
+	Info     ErrorSeverity = 1
+	Warning  ErrorSeverity = 2
+	Critical ErrorSeverity = 3
+	Fatal    ErrorSeverity = 4
+	Panic    ErrorSeverity = 5
+)
+
 // MultipleCustomErrs for errSlice of custom errs
 type MultipleCustomErrs interface {
 	// Adds an error to the errors storage
@@ -47,6 +56,10 @@ type CustomError interface {
 	GetMessage() ErrorMessage
 	// GetErrPath return file path of error
 	GetPath() ErrorPath
+	// GetSeverity return severity value
+	GetSeverity() ErrorSeverity
+	// SetSeverity set severity value
+	SetSeverity(ErrorSeverity)
 	// GetBaggage return error baggage
 	GetBaggage() ErrorBaggage
 	// GetFullTrace return StackError slice
@@ -70,7 +83,7 @@ type CustomError interface {
 	// AddOperation is a simplified version of the New function that allows to override an error by adding only a message
 	// and baggage the error code and level are taken from the original error, ErrPath will be automatically written with
 	// the place where the AddOperation function is called
-	AddOperation(message ErrorMessage, baggage ErrorBaggage) CustomError
+	AddOperation(message ErrorMessage, baggage ErrorBaggage, severity ErrorSeverity) CustomError
 	// GetStack return StackError of error with baggage on every level
 	getStack(result *[]StackError)
 }
@@ -79,7 +92,7 @@ type CustomError interface {
 // also used for error wrapping with the possibility of creating and later getting an error stack
 func New(
 	code ErrorCode, message ErrorMessage, errDataLevel ErrorDataLevel, errPath ErrorPath, baggage ErrorBaggage,
-	err error,
+	severity ErrorSeverity, err error,
 ) CustomError {
 	// Initialize empty ErrorBaggage map to prevent panics
 	if baggage == nil {
@@ -93,6 +106,7 @@ func New(
 		nativeErr: err,
 		dataLayer: errDataLevel,
 		baggage:   baggage,
+		severity:  severity,
 	}
 }
 
@@ -104,7 +118,7 @@ func NewMultiply() MultipleCustomErrs {
 // Wrap is a simplified version of the New function that will create custom error with empty error additional data
 func Wrap(err error, message ErrorMessage) CustomError {
 	return &customErr{
-		path: DetectPath(skipPackage),
+		path:      DetectPath(skipPackage),
 		message:   message,
 		baggage:   make(ErrorBaggage),
 		nativeErr: err,

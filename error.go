@@ -8,6 +8,7 @@ type ErrorCode int
 type ErrorPath string
 type ErrorMessage string
 type ErrorDataLevel int
+type ErrorSeverity int
 type ErrorBaggage map[string]interface{}
 
 // customErr provides custom err struct type
@@ -24,6 +25,9 @@ type customErr struct {
 	nativeErr error
 	// Describes the error from the data level where the error occurred
 	dataLayer ErrorDataLevel
+	// It is used to indicate the severity of errors and can be used
+	// For example, to determine whether a given error should be recorded in the debug log
+	severity ErrorSeverity
 }
 
 // StackError struct used for StackTrace output
@@ -42,6 +46,16 @@ func (e *customErr) GetDataLevel() ErrorDataLevel {
 // GetCode returns a code of customErr
 func (e *customErr) GetCode() ErrorCode {
 	return e.code
+}
+
+// GetSeverity return severity value
+func (e *customErr) GetSeverity() ErrorSeverity {
+	return e.severity
+}
+
+// SetSeverity set severity value
+func (e *customErr) SetSeverity(severity ErrorSeverity) {
+	e.severity = severity
 }
 
 // GetMessage returns a message of error with path && errorMessage
@@ -72,8 +86,8 @@ func (e *customErr) GetFullTraceSlice() (result []StackError) {
 // AddOperation is a simplified version of the New function that allows to override an error by adding only a message
 // and baggage the error code and level are taken from the original error, ErrPath will be automatically written with
 // the place where the AddOperation function is called
-func (e *customErr) AddOperation(message ErrorMessage, baggage ErrorBaggage) CustomError {
-	return New(e.code, message, e.dataLayer, DetectPath(skipPackage), baggage, e)
+func (e *customErr) AddOperation(message ErrorMessage, baggage ErrorBaggage, severity ErrorSeverity) CustomError {
+	return New(e.code, message, e.dataLayer, DetectPath(skipPackage), baggage, severity, e)
 }
 
 // AddBaggage add fields with values to err

@@ -14,6 +14,7 @@ const (
 	referenceErrLayer  = UseCase
 	referenceErrPath   = "Err Path"
 	referenceErrorText = "test Error"
+	referenceSeverity  = Debug
 )
 
 var referenceBaggage = ErrorBaggage{
@@ -31,17 +32,20 @@ func referenceError() customErr {
 		path:      referenceErrPath,
 		nativeErr: errors.New(referenceErrorText),
 		dataLayer: referenceErrLayer,
+		severity:  referenceSeverity,
 	}
 }
 
 func TestNewErr(t *testing.T) {
 	assertions := assert.New(t)
 	reference := referenceError()
-	createdError := New(referenceErrCode, referenceMessage, UseCase, referenceErrPath, referenceBaggage, errNativeReference)
+	createdError := New(referenceErrCode, referenceMessage, UseCase, referenceErrPath, referenceBaggage,
+		referenceSeverity, errNativeReference)
 	assertions.Equal(&reference, createdError, "Check creating mew error")
 
 	reference.baggage = make(ErrorBaggage)
-	createdError = New(referenceErrCode, referenceMessage, UseCase, referenceErrPath, nil, errNativeReference)
+	createdError = New(referenceErrCode, referenceMessage, UseCase, referenceErrPath, nil, referenceSeverity,
+		errNativeReference)
 	assertions.Equal(&reference, createdError, "Check creating new error with empty baggage")
 }
 
@@ -85,6 +89,19 @@ func Test_customErr_SetBaggage(t *testing.T) {
 	assertions.Equal(expectedBaggage, checkedErr.GetBaggage())
 }
 
+func Test_customErr_SetSeverity(t *testing.T) {
+	assertions := assert.New(t)
+	checkedErr := referenceError()
+	checkedErr.SetSeverity(Debug)
+	assertions.Equal(Debug, checkedErr.GetSeverity())
+}
+
+func Test_customErr_GetSeverity(t *testing.T) {
+	assertions := assert.New(t)
+	checkedErr := referenceError()
+	checkedErr.severity = Debug
+	assertions.Equal(Debug, checkedErr.GetSeverity())
+}
 
 func Test_customErr_SetCode(t *testing.T) {
 	assertions := assert.New(t)
@@ -93,12 +110,11 @@ func Test_customErr_SetCode(t *testing.T) {
 	assertions.Equal(Unauthorized, checkedErr.GetCode())
 }
 
-
 func Test_customErr_SetMessage(t *testing.T) {
 	assertions := assert.New(t)
 	checkedErr := referenceError()
 	checkedErr.SetMessage(ErrorMessage("Test"))
-	assertions.Equal(ErrorMessage(referenceErrPath + ", Test"), checkedErr.GetMessage())
+	assertions.Equal(ErrorMessage(referenceErrPath+", Test"), checkedErr.GetMessage())
 }
 
 func Test_customErr_SetPath(t *testing.T) {
@@ -262,13 +278,15 @@ func Test_customErr_AddOperation(t *testing.T) {
 	referenceBaggageClone := referenceBaggage
 	referenceBaggageClone["test"] = "test"
 
-	wrappedErr := refErr.AddOperation("Wrapped Error", referenceBaggageClone)
+	wrappedErr := refErr.AddOperation("Wrapped Error", referenceBaggageClone, referenceSeverity)
 	assertions.Len(refErr.GetFullTraceSlice(), 2, "Check original Err stack length")
 	assertions.Len(wrappedErr.GetFullTraceSlice(), 3, "Check wrapped Err stack length")
 	assertions.Equal(refErr.GetCode(), wrappedErr.GetCode(), "Check that ref code was cloned to wrapped Err code")
-	assertions.Equal(refErr.GetDataLevel(), wrappedErr.GetDataLevel(), "Check that ref dataLayer was cloned to wrapped Err dataLayer")
+	assertions.Equal(refErr.GetDataLevel(), wrappedErr.GetDataLevel(),
+		"Check that ref dataLayer was cloned to wrapped Err dataLayer")
 	assertions.Equal(&refErr, wrappedErr.GetNative(), "Check Relation between errors")
-	assertions.Equal(referenceBaggageClone, wrappedErr.GetBaggage(), "Check that wrapped error baggage contains all changes")
+	assertions.Equal(referenceBaggageClone, wrappedErr.GetBaggage(),
+		"Check that wrapped error baggage contains all changes")
 	assertions.Equal(referenceBaggage, refErr.GetBaggage(), "Check that refErr baggage doesnt change")
 }
 
@@ -276,9 +294,12 @@ func Test_customErrs_GetErr(t *testing.T) {
 	assertions := assert.New(t)
 	errs := NewMultiply()
 	assertions.Len(errs.GetErrs(), 0)
-	errs.AddErr(New(referenceErrCode, referenceMessage, UseCase, referenceErrPath, referenceBaggage, errNativeReference))
-	errs.AddErr(New(referenceErrCode, referenceMessage, UseCase, referenceErrPath, referenceBaggage, errNativeReference))
-	errs.AddErr(New(referenceErrCode, referenceMessage, UseCase, referenceErrPath, referenceBaggage, errNativeReference))
+	errs.AddErr(New(referenceErrCode, referenceMessage, UseCase, referenceErrPath, referenceBaggage,
+		referenceSeverity, errNativeReference))
+	errs.AddErr(New(referenceErrCode, referenceMessage, UseCase, referenceErrPath, referenceBaggage,
+		referenceSeverity, errNativeReference))
+	errs.AddErr(New(referenceErrCode, referenceMessage, UseCase, referenceErrPath, referenceBaggage,
+		referenceSeverity, errNativeReference))
 	assertions.Len(errs.GetErrs(), 3)
 }
 
@@ -286,7 +307,8 @@ func Test_customErrs_AddErr(t *testing.T) {
 	assertions := assert.New(t)
 	requires := require.New(t)
 	errs := NewMultiply()
-	errs.AddErr(New(referenceErrCode, referenceMessage, UseCase, referenceErrPath, referenceBaggage, errNativeReference))
+	errs.AddErr(New(referenceErrCode, referenceMessage, UseCase, referenceErrPath, referenceBaggage,
+		referenceSeverity, errNativeReference))
 	requires.Len(errs.GetErrs(), 1)
 	assertions.Equal(errs.GetErrs()[0].GetCode(), referenceErrCode)
 }
@@ -296,16 +318,20 @@ func Test_customErrs_IsEmpty(t *testing.T) {
 	errs := NewMultiply()
 	assertions.Len(errs.GetErrs(), 0)
 	assertions.Equal(true, errs.IsEmpty())
-	errs.AddErr(New(referenceErrCode, referenceMessage, UseCase, referenceErrPath, referenceBaggage, errNativeReference))
+	errs.AddErr(New(referenceErrCode, referenceMessage, UseCase, referenceErrPath, referenceBaggage,
+		referenceSeverity, errNativeReference))
 	assertions.Equal(false, errs.IsEmpty())
 }
 
 func Test_customErrs_isErrorExist(t *testing.T) {
 	assertions := assert.New(t)
 	errs := NewMultiply()
-	errs.AddErr(New(InternalError, referenceMessage, UseCase, referenceErrPath, referenceBaggage, errNativeReference))
-	errs.AddErr(New(InvalidArguments, referenceMessage, Controller, referenceErrPath, referenceBaggage, errNativeReference))
-	errs.AddErr(New(Unauthorized, referenceMessage, Transport, referenceErrPath, referenceBaggage, errNativeReference))
+	errs.AddErr(New(InternalError, referenceMessage, UseCase, referenceErrPath, referenceBaggage,
+		referenceSeverity, errNativeReference))
+	errs.AddErr(New(InvalidArguments, referenceMessage, Controller, referenceErrPath, referenceBaggage,
+		referenceSeverity, errNativeReference))
+	errs.AddErr(New(Unauthorized, referenceMessage, Transport, referenceErrPath, referenceBaggage,
+		referenceSeverity, errNativeReference))
 
 	assertions.Equal(false, errs.isErrorExist(InternalError, Controller))
 	assertions.Equal(true, errs.isErrorExist(InternalError, UseCase))
@@ -313,4 +339,3 @@ func Test_customErrs_isErrorExist(t *testing.T) {
 	assertions.Equal(true, errs.isErrorExist(InvalidArguments, Controller))
 	assertions.Equal(false, errs.isErrorExist(Unauthorized, Controller))
 }
-
