@@ -128,7 +128,7 @@ func (e *customErr) SetBaggage(baggage ErrorBaggage) {
 }
 
 // AddBaggage add fields with values to err
-func (e *customErr) GetNative() error {
+func (e *customErr) Unwrap() error {
 	return e.nativeErr
 }
 

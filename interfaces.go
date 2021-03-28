@@ -19,6 +19,7 @@ const (
 	Transport   ErrorDataLevel = 105
 )
 
+// Severity Levels
 const (
 	Debug    ErrorSeverity = 0
 	Info     ErrorSeverity = 1
@@ -45,7 +46,7 @@ type MultipleCustomErrs interface {
 // CustomError for custom customErr type
 type CustomError interface {
 	// GetNative return original error that has been wrapped
-	GetNative() error
+	Unwrap() error
 	// Error implement error interface support
 	Error() string
 	// GetType return type code of error, see customErr levels

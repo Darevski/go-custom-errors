@@ -17,7 +17,7 @@ These are the next extra extended features that present in package:
    could be wrapped using this package.
 2. **Wrapping Stack Generation** - errors wrapping allow package to generate stack of errors
 3. **Additional Information** - every custom error has information about place of error appearing, error code, 
-   information of error data layer level
+   information of error data layer level, error severity
 4. **Baggage Data** - a map which could be used to store custom data associated with an error.
 5. **Multiple Error Storage** - package provides the ability to store multiple errors, with further operations with them,
 like search etc.
@@ -135,9 +135,9 @@ the place where the AddOperation function is called
 All methods of **CustomError** and **MultipleCustomErrs** can be viewed at [this file](interfaces.go)
 
 
-### Error Codes && DataLayers Levels 
+### Error Codes && DataLayers|Severity Levels
 
-The following error codes and dataLayer levels are currently available:
+The following error codes, dataLayer and severity levels are currently available:
 
 ``` go
 const (
@@ -155,6 +155,16 @@ const (
 	Controller  ErrorDataLevel = 104
 	Transport   ErrorDataLevel = 105
 )
+
+const (
+	Debug    ErrorSeverity = 0
+	Info     ErrorSeverity = 1
+	Warning  ErrorSeverity = 2
+	Critical ErrorSeverity = 3
+	Fatal    ErrorSeverity = 4
+	Panic    ErrorSeverity = 5
+)
+
 ```
 
 Fell free to use any INT code for own codes/levels

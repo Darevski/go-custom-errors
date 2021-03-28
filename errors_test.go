@@ -137,7 +137,7 @@ func Test_customErr_Wrap(t *testing.T) {
 	checkedErr := Wrap(err, "WrappedError")
 	checkedErr.SetPath("Test Path")
 	assertions.Equal(ErrorMessage("Test Path, WrappedError"), checkedErr.GetMessage())
-	assertions.Equal(err, checkedErr.GetNative())
+	assertions.Equal(err, checkedErr.Unwrap())
 }
 
 func Test_customErr_GetBaggage(t *testing.T) {
@@ -284,7 +284,7 @@ func Test_customErr_AddOperation(t *testing.T) {
 	assertions.Equal(refErr.GetCode(), wrappedErr.GetCode(), "Check that ref code was cloned to wrapped Err code")
 	assertions.Equal(refErr.GetDataLevel(), wrappedErr.GetDataLevel(),
 		"Check that ref dataLayer was cloned to wrapped Err dataLayer")
-	assertions.Equal(&refErr, wrappedErr.GetNative(), "Check Relation between errors")
+	assertions.Equal(&refErr, wrappedErr.Unwrap(), "Check Relation between errors")
 	assertions.Equal(referenceBaggageClone, wrappedErr.GetBaggage(),
 		"Check that wrapped error baggage contains all changes")
 	assertions.Equal(referenceBaggage, refErr.GetBaggage(), "Check that refErr baggage doesnt change")
