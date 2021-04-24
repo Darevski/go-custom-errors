@@ -38,7 +38,7 @@ type StackError struct {
 	Code      ErrorCode
 }
 
-// GetErrorDataLevel returns the error level based on the data level at which the error occurred
+// GetDataLevel returns the error level based on the data level at which the error occurred
 func (e *customErr) GetDataLevel() ErrorDataLevel {
 	return e.dataLayer
 }
@@ -54,8 +54,9 @@ func (e *customErr) GetSeverity() ErrorSeverity {
 }
 
 // SetSeverity set severity value
-func (e *customErr) SetSeverity(severity ErrorSeverity) {
+func (e *customErr) SetSeverity(severity ErrorSeverity) CustomError {
 	e.severity = severity
+	return e
 }
 
 // GetMessage returns a message of error with path && errorMessage
@@ -91,43 +92,49 @@ func (e *customErr) AddOperation(message ErrorMessage, baggage ErrorBaggage, sev
 }
 
 // AddBaggage add fields with values to err
-func (e *customErr) AddBaggage(baggage ErrorBaggage) {
+func (e *customErr) AddBaggage(baggage ErrorBaggage) CustomError {
 	for k, v := range baggage {
 		e.baggage[k] = v
 	}
+	return e
 }
 
 // SetCode set error code
-func (e *customErr) SetCode(code ErrorCode) {
+func (e *customErr) SetCode(code ErrorCode) CustomError {
 	e.code = code
+	return e
 }
 
 // SetMessage set message of error
-func (e *customErr) SetMessage(message ErrorMessage) {
+func (e *customErr) SetMessage(message ErrorMessage) CustomError {
 	e.message = message
+	return e
 }
 
 // SetPath set error path
-func (e *customErr) SetPath(errPath ErrorPath) {
+func (e *customErr) SetPath(errPath ErrorPath) CustomError {
 	e.path = errPath
+	return e
 }
 
 // SetDataLevel set data layer level
-func (e *customErr) SetDataLevel(dataLayer ErrorDataLevel) {
+func (e *customErr) SetDataLevel(dataLayer ErrorDataLevel) CustomError {
 	e.dataLayer = dataLayer
+	return e
 }
 
 // SetBaggage set baggage of error
-func (e *customErr) SetBaggage(baggage ErrorBaggage) {
+func (e *customErr) SetBaggage(baggage ErrorBaggage) CustomError {
 	// do not allow to use nil as storage
 	if baggage == nil {
 		e.baggage = make(ErrorBaggage)
-		return
+		return nil
 	}
 	e.baggage = baggage
+	return e
 }
 
-// AddBaggage add fields with values to err
+// Unwrap return wrapped error with standard error interface
 func (e *customErr) Unwrap() error {
 	return e.nativeErr
 }

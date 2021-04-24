@@ -45,42 +45,42 @@ type MultipleCustomErrs interface {
 
 // CustomError for custom customErr type
 type CustomError interface {
-	// GetNative return original error that has been wrapped
+	// Unwrap return original error that has been wrapped
 	Unwrap() error
 	// Error implement error interface support
 	Error() string
-	// GetType return type code of error, see customErr levels
+	// GetDataLevel GetType return type code of error, see customErr levels
 	GetDataLevel() ErrorDataLevel
 	// GetCode return code of error, see customErr types
 	GetCode() ErrorCode
 	// GetMessage return error message value
 	GetMessage() ErrorMessage
-	// GetErrPath return file path of error
+	// GetPath return file path of error
 	GetPath() ErrorPath
 	// GetSeverity return severity value
 	GetSeverity() ErrorSeverity
 	// SetSeverity set severity value
-	SetSeverity(ErrorSeverity)
+	SetSeverity(ErrorSeverity) CustomError
 	// GetBaggage return error baggage
 	GetBaggage() ErrorBaggage
-	// GetFullTrace return StackError slice
+	// GetFullTraceSlice GetFullTrace return StackError slice
 	GetFullTraceSlice() (result []StackError)
 	// IsErrorExistInStack checks if there is an error with the specified parameters in the error stack
 	IsErrorExistInStack(code ErrorCode, level ErrorDataLevel) bool
 	// IsErrorWithCodeExistInStack checks if there is an error with specified Code exist in error stack
 	IsErrorWithCodeExistInStack(code ErrorCode) bool
 	// AddBaggage add fields for error baggage
-	AddBaggage(baggage ErrorBaggage)
+	AddBaggage(baggage ErrorBaggage) CustomError
 	// SetCode set error code
-	SetCode(code ErrorCode)
+	SetCode(code ErrorCode) CustomError
 	// SetMessage set message of error
-	SetMessage(message ErrorMessage)
+	SetMessage(message ErrorMessage) CustomError
 	// SetPath set error path
-	SetPath(errPath ErrorPath)
+	SetPath(errPath ErrorPath) CustomError
 	// SetDataLevel set data layer level
-	SetDataLevel(dataLayer ErrorDataLevel)
+	SetDataLevel(dataLayer ErrorDataLevel) CustomError
 	// SetBaggage set baggage of error - fully rewrite exist baggage
-	SetBaggage(baggage ErrorBaggage)
+	SetBaggage(baggage ErrorBaggage) CustomError
 	// AddOperation is a simplified version of the New function that allows to override an error by adding only a message
 	// and baggage the error code and level are taken from the original error, ErrPath will be automatically written with
 	// the place where the AddOperation function is called
