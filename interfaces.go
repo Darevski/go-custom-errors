@@ -1,5 +1,9 @@
 package errors
 
+import (
+	"fmt"
+)
+
 // CustomErr Codes
 const (
 	InternalError    ErrorCode = 1500
@@ -121,6 +125,17 @@ func Wrap(err error, message ErrorMessage) CustomError {
 	return &customErr{
 		path:      DetectPath(skipPackage),
 		message:   message,
+		baggage:   make(ErrorBaggage),
+		nativeErr: err,
+	}
+}
+
+// Wrapf returns an error annotating err with a stack trace
+// at the point Wrapf is called, and the format specifier.
+func Wrapf(err error, format string, args ...interface{}) CustomError {
+	return &customErr{
+		path:      DetectPath(skipPackage),
+		message:   ErrorMessage(fmt.Sprintf(format, args...)),
 		baggage:   make(ErrorBaggage),
 		nativeErr: err,
 	}
