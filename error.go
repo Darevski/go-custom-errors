@@ -91,6 +91,15 @@ func (e *customErr) AddOperation(message ErrorMessage, baggage ErrorBaggage, sev
 	return New(e.code, message, e.dataLayer, DetectPath(skipPackage), baggage, severity, e)
 }
 
+// AddOperationf analog of AddOperation function that allowed to use format for error message
+func (e *customErr) AddOperationf(
+	baggage ErrorBaggage, severity ErrorSeverity, format string, args ...interface{},
+) CustomError {
+	return New(
+		e.code, ErrorMessage(fmt.Sprintf(format, args...)), e.dataLayer, DetectPath(skipPackage), baggage, severity, e,
+	)
+}
+
 // AddBaggage add fields with values to err
 func (e *customErr) AddBaggage(baggage ErrorBaggage) CustomError {
 	for k, v := range baggage {
@@ -167,18 +176,22 @@ func (e *customErr) IsErrorWithCodeExistInStack(code ErrorCode) bool {
 
 // getStack return slice of errors
 func (e *customErr) getStack(result *[]StackError) {
-	*result = append(*result, StackError{
-		Message:   e.GetMessage(),
-		Baggage:   e.GetBaggage(),
-		DataLayer: e.GetDataLevel(),
-		Code:      e.GetCode(),
-	})
+	*result = append(
+		*result, StackError{
+			Message:   e.GetMessage(),
+			Baggage:   e.GetBaggage(),
+			DataLayer: e.GetDataLevel(),
+			Code:      e.GetCode(),
+		},
+	)
 
 	if val, ok := e.nativeErr.(CustomError); ok {
 		val.getStack(result)
 	} else {
-		*result = append(*result, StackError{
-			Message: ErrorMessage(e.nativeErr.Error()),
-		})
+		*result = append(
+			*result, StackError{
+				Message: ErrorMessage(e.nativeErr.Error()),
+			},
+		)
 	}
 }
