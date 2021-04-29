@@ -89,6 +89,8 @@ type CustomError interface {
 	// and baggage the error code and level are taken from the original error, ErrPath will be automatically written with
 	// the place where the AddOperation function is called
 	AddOperation(message ErrorMessage, baggage ErrorBaggage, severity ErrorSeverity) CustomError
+	// AddOperationf analog of AddOperation function that allowed to use format for error message
+	AddOperationf(baggage ErrorBaggage, severity ErrorSeverity, format string, args ...interface{}) CustomError
 	// GetStack return StackError of error with baggage on every level
 	getStack(result *[]StackError)
 }
