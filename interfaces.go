@@ -115,6 +115,38 @@ func New(
 	}
 }
 
+// Newf create new custom error with provided params and the message format specifier.
+func Newf(
+	code ErrorCode, errDataLevel ErrorDataLevel, errPath ErrorPath, baggage ErrorBaggage,
+	severity ErrorSeverity, err error, format string, args ...interface{},
+) CustomError {
+	// Initialize empty ErrorBaggage map to prevent panics
+	if baggage == nil {
+		baggage = make(ErrorBaggage)
+	}
+
+	return &customErr{
+		code:      code,
+		message:   ErrorMessage(fmt.Sprintf(format, args...)),
+		path:      errPath,
+		nativeErr: err,
+		dataLayer: errDataLevel,
+		baggage:   baggage,
+		severity:  severity,
+	}
+}
+
+// NewBasef create new custom error from minimum required params
+// Uses as simplified version of Newf function
+func NewBasef(err error, format string, args ...interface{}) CustomError {
+	return &customErr{
+		path:      DetectPath(skipPackage),
+		nativeErr: err,
+		message:   ErrorMessage(fmt.Sprintf(format, args...)),
+		baggage:   make(ErrorBaggage),
+	}
+}
+
 // NewMultiply create Multiple Errors representation struct that allowed to use MultipleCustomErrs interface
 func NewMultiply() MultipleCustomErrs {
 	return &customErrs{}
