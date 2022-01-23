@@ -2,50 +2,118 @@ package errors
 
 import (
 	"fmt"
+	errs "github.com/pkg/errors"
+	"regexp"
 )
 
-type ErrorCode int
-type ErrorPath string
-type ErrorMessage string
-type ErrorDataLevel int
+// New create custom error with the provided params && error message
+func New(
+	errType ErrorType, errLevel ErrorLevel, baggage ErrorBaggage,
+	severity ErrorSeverity, message ErrorMessage,
+) CustomError {
+	// Initialize empty ErrorBaggage map to prevent panics
+	if baggage == nil {
+		baggage = make(ErrorBaggage)
+	}
+	return newCustomErr(errType, baggage, errLevel, severity, errs.New(message.String()))
+}
+
+// NewF create custom error with params && error message that formats according to a format specifier
+func NewF(
+	errType ErrorType, errLevel ErrorLevel, baggage ErrorBaggage,
+	severity ErrorSeverity, format string, args ...interface{},
+) CustomError {
+	// Initialize empty ErrorBaggage map to prevent panics
+	if baggage == nil {
+		baggage = make(ErrorBaggage)
+	}
+	return newCustomErr(errType, baggage, errLevel, severity, errs.Errorf(format, args...))
+}
+
+// NewBase create custom error with specified message
+// also all error attributes are set to default values
+func NewBase(message ErrorMessage) CustomError {
+	return newCustomErr(DefaultType, make(ErrorBaggage), DefaultLevel, DefaultSeverity, errs.WithStack(errs.New(message.String())))
+}
+
+// NewBaseF create custom error with error message that formats according to a format specifier
+// also all error attributes are set to default values
+func NewBaseF(format string, args ...interface{}) CustomError {
+	return newCustomErr(DefaultType, make(ErrorBaggage), DefaultLevel, DefaultSeverity, errs.Errorf(format, args...))
+}
+
+// Wrap error with message. If wrapped error implements CustomError interface than all semantic data such
+// a severity, error level, error type will be copied into result error
+func Wrap(err error, message ErrorMessage) CustomError {
+	wrappedErr := errs.Wrap(err, message.String())
+	if customErr, ok := err.(CustomError); ok {
+		return newCustomErr(customErr.GetType(), make(ErrorBaggage), customErr.GetLevel(), customErr.GetSeverity(), wrappedErr)
+	}
+	return newCustomErr(DefaultType, make(ErrorBaggage), DefaultLevel, DefaultSeverity, wrappedErr)
+}
+
+// WrapF is analogous to the Wrap method, except that instead of ErrorMessage there are formatting arguments for the message
+func WrapF(err error, format string, args ...interface{}) CustomError {
+	wrappedErr := errs.Wrapf(err, format, args...)
+	if customErr, ok := err.(CustomError); ok {
+		return newCustomErr(customErr.GetType(), make(ErrorBaggage), customErr.GetLevel(), customErr.GetSeverity(), wrappedErr)
+	}
+	return newCustomErr(DefaultType, make(ErrorBaggage), DefaultLevel, DefaultSeverity, wrappedErr)
+}
+
+const callerSkip = 1
+
+type ErrorLevel int
 type ErrorSeverity int
 type ErrorBaggage map[string]interface{}
 
 // customErr provides custom err struct type
 type customErr struct {
 	// Describes an error in the form of a code, analogous to http error
-	code ErrorCode
-	// Message of Error
-	message ErrorMessage
+	errType ErrorType
 	// Map of interface{} values that related to error
 	baggage ErrorBaggage
-	// Path of file && error line
-	path ErrorPath
-	// Original/Wrapped error
-	nativeErr error
 	// Describes the error from the data level where the error occurred
-	dataLayer ErrorDataLevel
+	level ErrorLevel
 	// It is used to indicate the severity of errors and can be used
 	// For example, to determine whether a given error should be recorded in the debug log
 	severity ErrorSeverity
+	// Original/Wrapped error
+	//wrappedErr Unwrapped
+	wrappedErr error
 }
 
-// StackError struct used for StackTrace output
-type StackError struct {
-	Message   ErrorMessage
-	Baggage   ErrorBaggage
-	DataLayer ErrorDataLevel
-	Code      ErrorCode
+type ErrorMessage string
+
+func (m ErrorMessage) String() string {
+	return string(m)
 }
 
-// GetDataLevel returns the error level based on the data level at which the error occurred
-func (e *customErr) GetDataLevel() ErrorDataLevel {
-	return e.dataLayer
+type ErrorPath string
+
+func (p ErrorPath) String() string {
+	return string(p)
 }
 
-// GetCode returns a code of customErr
-func (e *customErr) GetCode() ErrorCode {
-	return e.code
+// newCustomErr is constructor for customErr struct
+func newCustomErr(errType ErrorType, baggage ErrorBaggage, dataLayer ErrorLevel, severity ErrorSeverity, originalErr error) *customErr {
+	return &customErr{errType: errType, baggage: baggage, level: dataLayer, severity: severity, wrappedErr: originalErr}
+}
+
+// GetLevel returns the error level based on the data level at which the error occurred
+func (e *customErr) GetLevel() ErrorLevel {
+	return e.level
+}
+
+// SetLevel set data layer level
+func (e *customErr) SetLevel(dataLayer ErrorLevel) CustomError {
+	e.level = dataLayer
+	return e
+}
+
+// GetType returns a code of customErr
+func (e *customErr) GetType() ErrorType {
+	return e.errType
 }
 
 // GetSeverity return severity value
@@ -61,43 +129,17 @@ func (e *customErr) SetSeverity(severity ErrorSeverity) CustomError {
 
 // GetMessage returns a message of error with path && errorMessage
 func (e *customErr) GetMessage() ErrorMessage {
-	return ErrorMessage(fmt.Sprintf("%s, %s", e.GetPath(), e.message))
+	re := regexp.MustCompile(`(?U)(.+):`)
+	errMessage := e.wrappedErr.Error()
+	if result := re.FindStringSubmatch(errMessage); len(result) > 0 {
+		return ErrorMessage(result[1])
+	}
+	return ErrorMessage(errMessage)
 }
 
 // GetBaggage return baggage of error
 func (e *customErr) GetBaggage() ErrorBaggage {
 	return e.baggage
-}
-
-// GetErrPath return path of error
-func (e *customErr) GetPath() ErrorPath {
-	return e.path
-}
-
-// Error represent string value of customErr
-func (e *customErr) Error() string {
-	return fmt.Sprintf("message: %s", e.GetMessage())
-}
-
-func (e *customErr) GetFullTraceSlice() (result []StackError) {
-	e.getStack(&result)
-	return result
-}
-
-// AddOperation is a simplified version of the New function that allows to override an error by adding only a message
-// and baggage the error code and level are taken from the original error, ErrPath will be automatically written with
-// the place where the AddOperation function is called
-func (e *customErr) AddOperation(message ErrorMessage, baggage ErrorBaggage, severity ErrorSeverity) CustomError {
-	return New(e.code, message, e.dataLayer, DetectPath(skipPackage), baggage, severity, e)
-}
-
-// AddOperationf analog of AddOperation function that allowed to use format for error message
-func (e *customErr) AddOperationf(
-	baggage ErrorBaggage, severity ErrorSeverity, format string, args ...interface{},
-) CustomError {
-	return New(
-		e.code, ErrorMessage(fmt.Sprintf(format, args...)), e.dataLayer, DetectPath(skipPackage), baggage, severity, e,
-	)
 }
 
 // AddBaggage add fields with values to err
@@ -108,66 +150,84 @@ func (e *customErr) AddBaggage(baggage ErrorBaggage) CustomError {
 	return e
 }
 
-// SetCode set error code
-func (e *customErr) SetCode(code ErrorCode) CustomError {
-	e.code = code
-	return e
-}
-
-// SetMessage set message of error
-func (e *customErr) SetMessage(message ErrorMessage) CustomError {
-	e.message = message
-	return e
-}
-
-// SetPath set error path
-func (e *customErr) SetPath(errPath ErrorPath) CustomError {
-	e.path = errPath
-	return e
-}
-
-// SetDataLevel set data layer level
-func (e *customErr) SetDataLevel(dataLayer ErrorDataLevel) CustomError {
-	e.dataLayer = dataLayer
-	return e
-}
-
 // SetBaggage set baggage of error
 func (e *customErr) SetBaggage(baggage ErrorBaggage) CustomError {
-	// do not allow to use nil as storage
+	// do not allow using nil pointer as a storage
 	if baggage == nil {
 		e.baggage = make(ErrorBaggage)
-		return nil
+		return e
 	}
 	e.baggage = baggage
 	return e
 }
 
-// Unwrap return wrapped error with standard error interface
-func (e *customErr) Unwrap() error {
-	return e.nativeErr
+// GetPath return path of error
+func (e *customErr) GetPath() ErrorPath {
+	if err, ok := e.wrappedErr.(stackTracer); ok {
+		st := err.StackTrace()
+		if len(st) == 0 {
+			return ""
+		}
+		if len(st) <= callerSkip {
+			return ErrorPath(fmt.Sprintf("%+s:%d", st[0], st[0]))
+		} else {
+			return ErrorPath(fmt.Sprintf("%+s:%d", st[callerSkip], st[callerSkip]))
+		}
+	}
+	return ""
 }
 
-// IsErrorExistInStack checks if there is an error with the specified parameters in the error stack
-func (e *customErr) IsErrorExistInStack(code ErrorCode, level ErrorDataLevel) bool {
-	stack := make([]StackError, 0)
-	e.getStack(&stack)
+// Error represent string value of customErr
+func (e *customErr) Error() string {
+	return e.wrappedErr.Error()
+}
 
+func (e *customErr) GetTraceSlice() (trace []string) {
+	stack := make([]CustomError, 0)
+	e.getStack(&stack)
 	for _, v := range stack {
-		if v.DataLayer == level && v.Code == code {
-			return true
+		trace = append(trace, fmt.Sprintf("Message: %s, Path: %s", v.GetMessage().String(), v.GetPath().String()))
+	}
+	trace = append(trace, fmt.Sprintf("Cause: %+v", Cause(e)))
+	return trace
+}
+
+// Unwrap return wrapped error with standard error interface
+func (e *customErr) Unwrap() error {
+	if pkgErr, ok := e.wrappedErr.(Unwrapped); ok {
+		// Unwrap wrapped Err and get StackErr
+		if pkgWithStack, ok := pkgErr.Unwrap().(Unwrapped); ok {
+			// Unwrap pkg StackErr
+			return pkgWithStack.Unwrap()
 		}
+	}
+	return e.wrappedErr
+}
+
+func Cause(e CustomError) error {
+	if val, ok := e.Unwrap().(CustomError); ok {
+		return Cause(val)
+	} else {
+		return e.Unwrap()
+	}
+}
+
+// Is - is the function that is used to compare errors by ErrorType
+func (e *customErr) Is(target error) bool {
+	if err, ok := target.(CustomError); ok && err.GetType() == e.errType {
+		return true
 	}
 	return false
 }
 
-// IsErrorWithCodeExistInStack checks if there is an error with specified Code exist in error stack
-func (e *customErr) IsErrorWithCodeExistInStack(code ErrorCode) bool {
-	stack := make([]StackError, 0)
+// IsMessageExistInStack checks if there is an error with the specified parameters in the error stack
+func (e *customErr) IsMessageExistInStack(message ErrorMessage) bool {
+	stack := make([]CustomError, 0)
 	e.getStack(&stack)
-
-	for _, v := range stack {
-		if v.Code == code {
+	for k, v := range stack {
+		if v.GetMessage() == message {
+			return true
+		} else if k == (len(stack)-1) && v.Unwrap().Error() == message.String() {
 			return true
 		}
 	}
@@ -175,23 +235,9 @@ func (e *customErr) IsErrorWithCodeExistInStack(code ErrorCode) bool {
 }
 
 // getStack return slice of errors
-func (e *customErr) getStack(result *[]StackError) {
-	*result = append(
-		*result, StackError{
-			Message:   e.GetMessage(),
-			Baggage:   e.GetBaggage(),
-			DataLayer: e.GetDataLevel(),
-			Code:      e.GetCode(),
-		},
-	)
-
-	if val, ok := e.nativeErr.(CustomError); ok {
+func (e *customErr) getStack(result *[]CustomError) {
+	*result = append(*result, e)
+	if val, ok := e.Unwrap().(CustomError); ok {
 		val.getStack(result)
-	} else {
-		*result = append(
-			*result, StackError{
-				Message: ErrorMessage(e.nativeErr.Error()),
-			},
-		)
 	}
 }

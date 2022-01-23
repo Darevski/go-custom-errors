@@ -27,13 +27,13 @@ like search etc.
 ### Basics
 
 ```go
-import cErrors "gitlab.com/73five.com/go-custom-errors"
+import cErrors "github.com/Darevski/go-custom-errors"
 
 //....
 
 func MyFunc() error{
     // Create new Custom Error that implements standard golang Error interface
-	err := cErrors.NewErr(ErrorCode, ErrorMessage, DataLayerLevel, cErrors.DetectPath(cErrors.SkipFunctionHelper), Baggage, err)
+	err := cErrors.New(ErrorType, ErrorLevel, ErrorBaggage, ErrorSeverity, ErrorMessage)
 	return err
     // .....
 }
@@ -60,7 +60,7 @@ func DoSomething(w http.ResponseWriter, r *http.Request) {
     //......
 	
     if err = ReadJSONFromReader(r, someModel); err != nil {
-        err = cErrors.NewErr(ErrorCode, ErrorMessage, DataLayerLevel, cErrors.DetectPath(cErrors.SkipFunctionHelper), nil, err)
+        err = cErrors.Wrap(err, "Error on JSON read")
         
         err.AddBaggage(cErrors.ErrorBaggage{
             "JsonReaderID" : someModel.ID
@@ -80,7 +80,7 @@ func DoSomething(w http.ResponseWriter, r *http.Request) {
     //......
 	
     if err = ReadJSONFromReader(r, someModel); err != nil {
-        err := cErrors.Wrap(err, "ReadJSONError")
+        err := cErrors.WrapF(err, "Read error for %s", r)
         err.AddBaggage(cErrors.ErrorBaggage{
             "JsonReaderID" : someModel.ID
         })
@@ -89,46 +89,6 @@ func DoSomething(w http.ResponseWriter, r *http.Request) {
     //......
 }
 ```
-
-## Docs
-
-#### func New
-
-```go
-func New(ErrorCode,ErrorMessage, ErrorDataLevel, ErrorPath, ErrorBaggage, error) CustomError
-```
-
-New create new custom error with provided params
-Note it will also used for error wrapping with the possibility of creating and later getting an error stack
-
-
-#### func Wrap
-
-```go
-func Wrap(err error, message ErrorMessage) CustomError
-```
-
-Wrap is a simplified version of the New function that will create custom error with empty error additional data
-
-#### func NewMultiply
-
-```go
-func NewMultiply() MultipleCustomErrs 
-```
-
-NewMultiply create Multiple Errors representation struct that allowed to use MultipleCustomErrs interface
-
-
-#### func AddOperation
-
-```go
-func AddOperation(message ErrorMessage, baggage ErrorBaggage) CustomError
-```
-
-AddOperation is a simplified version of the New function that allows to override an error by adding only a message
-and baggage the error code and level are taken from the original error, ErrPath will be automatically written with
-the place where the AddOperation function is called
-
 
 ### Available Interfaces 
 
@@ -141,28 +101,34 @@ The following error codes, dataLayer and severity levels are currently available
 
 ``` go
 const (
-	InternalError    ErrorCode = 1500
-	InvalidArguments ErrorCode = 1412
-	NotFound         ErrorCode = 1404
-	AccessDenied     ErrorCode = 1403
-	Unauthorized     ErrorCode = 1401
+	DefaultLevel = ErrorLevel(iota)
+	DataLevel
+	UseCaseLevel
+	ContainerLevel
+	ControllerLevel
+	TransportLevel
 )
 
 const (
-	DataService ErrorDataLevel = 101
-	UseCase     ErrorDataLevel = 102
-	Container   ErrorDataLevel = 103
-	Controller  ErrorDataLevel = 104
-	Transport   ErrorDataLevel = 105
+	DefaultSeverity = ErrorSeverity(iota)
+	Debug
+	Info
+	Warning
+	Critical
+	Fatal
+	Panic
 )
 
 const (
-	Debug    ErrorSeverity = 0
-	Info     ErrorSeverity = 1
-	Warning  ErrorSeverity = 2
-	Critical ErrorSeverity = 3
-	Fatal    ErrorSeverity = 4
-	Panic    ErrorSeverity = 5
+	DefaultType = ErrorType(iota)
+	NotFound
+	InvalidArguments
+
+	InternalError
+	BadRequest
+
+	AccessDenied
+	Unauthorized
 )
 
 ```

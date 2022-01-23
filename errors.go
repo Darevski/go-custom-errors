@@ -1,6 +1,7 @@
 package errors
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -21,11 +22,11 @@ func (c *customErrs) GetErrs() []CustomError {
 
 // Error represent string value of customErrs
 func (c *customErrs) Error() string {
-	var errors []string
+	var errs []string
 	for k := range c.errSlice {
-		errors = append(errors, c.errSlice[k].Error())
+		errs = append(errs, c.errSlice[k].Error())
 	}
-	return fmt.Sprintf("there are %d custom err in errSlice, errors: %v", len(c.errSlice), errors)
+	return fmt.Sprintf("there are %d custom err in errSlice, errs: %v", len(c.errSlice), errs)
 }
 
 // IsEmpty return:
@@ -35,12 +36,17 @@ func (c *customErrs) IsEmpty() bool {
 	return len(c.errSlice) == 0
 }
 
-// isErrorExist checks if there is an error with the specified parameters in the errors slice
-func (c *customErrs) isErrorExist(code ErrorCode, level ErrorDataLevel) bool {
+// IsErrorExist checks if there is an error with the specified parameters in the errors slice
+func (c *customErrs) IsErrorExist(target error) bool {
 	for _, v := range c.errSlice {
-		if v.GetDataLevel() == level && v.GetCode() == code {
+		if errors.Is(v, target) {
 			return true
 		}
 	}
 	return false
+}
+
+// NewMultiply create Multiple Errors representation struct that allowed to use MultipleCustomErrs interface
+func NewMultiply() MultipleCustomErrs {
+	return &customErrs{}
 }

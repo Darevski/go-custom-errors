@@ -1,62 +1,75 @@
 package errors
 
-import (
-	"fmt"
+import errs "github.com/pkg/errors"
+
+// ErrorLevel describes the data level of error, based on "clean architecture"
+const (
+	DefaultLevel = ErrorLevel(iota)
+	DataLevel
+	UseCaseLevel
+	ContainerLevel
+	ControllerLevel
+	TransportLevel
 )
 
-// CustomErr Codes
+// ErrorSeverity describes the severity of error
 const (
-	InternalError    ErrorCode = 1500
-	InvalidArguments ErrorCode = 1412
-	NotFound         ErrorCode = 1404
-	AccessDenied     ErrorCode = 1403
-	Unauthorized     ErrorCode = 1401
+	DefaultSeverity = ErrorSeverity(iota)
+	Debug
+	Info
+	Warning
+	Critical
+	Fatal
+	Panic
 )
 
-// CustomErr DataLayers
-// Based on "clean architecture"
+// ErrorType describes the type of error
 const (
-	DataService ErrorDataLevel = 101
-	UseCase     ErrorDataLevel = 102
-	Container   ErrorDataLevel = 103
-	Controller  ErrorDataLevel = 104
-	Transport   ErrorDataLevel = 105
+	DefaultType = ErrorType(iota)
+	NotFound
+	InvalidArguments
+
+	InternalError
+	BadRequest
+
+	AccessDenied
+	Unauthorized
 )
 
-// Severity Levels
-const (
-	Debug    ErrorSeverity = 0
-	Info     ErrorSeverity = 1
-	Warning  ErrorSeverity = 2
-	Critical ErrorSeverity = 3
-	Fatal    ErrorSeverity = 4
-	Panic    ErrorSeverity = 5
-)
+//go:generate stringer -type=ErrorType,ErrorLevel,ErrorSeverity -output=const.go
+
+type stackTracer interface {
+	StackTrace() errs.StackTrace
+}
 
 // MultipleCustomErrs for errSlice of custom errs
 type MultipleCustomErrs interface {
-	// Adds an error to the errors storage
-	AddErr(errorInterface CustomError)
-	// Checks if the errors storage is empty
-	IsEmpty() bool
-	// Return slice of added errors
-	GetErrs() []CustomError
-	// Returns an error in the string representation
+	// Error returns an error in the string representation
 	Error() string
-	// Checks if the error with specified attributes exist in storage
-	isErrorExist(code ErrorCode, level ErrorDataLevel) bool
+	// AddErr adds an error to the errors storage
+	AddErr(errorInterface CustomError)
+	// IsEmpty checks if the errors storage is empty
+	IsEmpty() bool
+	// GetErrs return slice of added errors
+	GetErrs() []CustomError
+	// IsErrorExist returns true if errs struct has err with target error type
+	IsErrorExist(target error) bool
 }
 
-// CustomError for custom customErr type
-type CustomError interface {
+type Unwrapped interface {
 	// Unwrap return original error that has been wrapped
 	Unwrap() error
 	// Error implement error interface support
 	Error() string
-	// GetDataLevel GetType return type code of error, see customErr levels
-	GetDataLevel() ErrorDataLevel
-	// GetCode return code of error, see customErr types
-	GetCode() ErrorCode
+}
+
+// CustomError for custom customErr type
+type CustomError interface {
+	Unwrapped
+	// GetLevel return type code of error, see customErr levels
+	GetLevel() ErrorLevel
+	// GetType return code of error, see customErr types
+	GetType() ErrorType
 	// GetMessage return error message value
 	GetMessage() ErrorMessage
 	// GetPath return file path of error
@@ -67,110 +80,20 @@ type CustomError interface {
 	SetSeverity(ErrorSeverity) CustomError
 	// GetBaggage return error baggage
 	GetBaggage() ErrorBaggage
-	// GetFullTraceSlice GetFullTrace return StackError slice
-	GetFullTraceSlice() (result []StackError)
-	// IsErrorExistInStack checks if there is an error with the specified parameters in the error stack
-	IsErrorExistInStack(code ErrorCode, level ErrorDataLevel) bool
-	// IsErrorWithCodeExistInStack checks if there is an error with specified Code exist in error stack
-	IsErrorWithCodeExistInStack(code ErrorCode) bool
+	// GetTraceSlice return error stack trace in string slice
+	// Include error message && error path, also cause error displayed with full stackTrace
+	GetTraceSlice() (trace []string)
 	// AddBaggage add fields for error baggage
 	AddBaggage(baggage ErrorBaggage) CustomError
-	// SetCode set error code
-	SetCode(code ErrorCode) CustomError
-	// SetMessage set message of error
-	SetMessage(message ErrorMessage) CustomError
-	// SetPath set error path
-	SetPath(errPath ErrorPath) CustomError
-	// SetDataLevel set data layer level
-	SetDataLevel(dataLayer ErrorDataLevel) CustomError
+	// SetLevel set data level
+	SetLevel(dataLayer ErrorLevel) CustomError
 	// SetBaggage set baggage of error - fully rewrite exist baggage
 	SetBaggage(baggage ErrorBaggage) CustomError
-	// AddOperation is a simplified version of the New function that allows to override an error by adding only a message
-	// and baggage the error code and level are taken from the original error, ErrPath will be automatically written with
-	// the place where the AddOperation function is called
-	AddOperation(message ErrorMessage, baggage ErrorBaggage, severity ErrorSeverity) CustomError
-	// AddOperationf analog of AddOperation function that allowed to use format for error message
-	AddOperationf(baggage ErrorBaggage, severity ErrorSeverity, format string, args ...interface{}) CustomError
-	// GetStack return StackError of error with baggage on every level
-	getStack(result *[]StackError)
-}
-
-// New create new custom error with provided params
-// also used for error wrapping with the possibility of creating and later getting an error stack
-func New(
-	code ErrorCode, message ErrorMessage, errDataLevel ErrorDataLevel, errPath ErrorPath, baggage ErrorBaggage,
-	severity ErrorSeverity, err error,
-) CustomError {
-	// Initialize empty ErrorBaggage map to prevent panics
-	if baggage == nil {
-		baggage = make(ErrorBaggage)
-	}
-
-	return &customErr{
-		code:      code,
-		message:   message,
-		path:      errPath,
-		nativeErr: err,
-		dataLayer: errDataLevel,
-		baggage:   baggage,
-		severity:  severity,
-	}
-}
-
-// Newf create new custom error with provided params and the message format specifier.
-func Newf(
-	code ErrorCode, errDataLevel ErrorDataLevel, errPath ErrorPath, baggage ErrorBaggage,
-	severity ErrorSeverity, err error, format string, args ...interface{},
-) CustomError {
-	// Initialize empty ErrorBaggage map to prevent panics
-	if baggage == nil {
-		baggage = make(ErrorBaggage)
-	}
-
-	return &customErr{
-		code:      code,
-		message:   ErrorMessage(fmt.Sprintf(format, args...)),
-		path:      errPath,
-		nativeErr: err,
-		dataLayer: errDataLevel,
-		baggage:   baggage,
-		severity:  severity,
-	}
-}
-
-// NewBasef create new custom error from minimum required params
-// Uses as simplified version of Newf function
-func NewBasef(err error, format string, args ...interface{}) CustomError {
-	return &customErr{
-		path:      DetectPath(skipPackage),
-		nativeErr: err,
-		message:   ErrorMessage(fmt.Sprintf(format, args...)),
-		baggage:   make(ErrorBaggage),
-	}
-}
-
-// NewMultiply create Multiple Errors representation struct that allowed to use MultipleCustomErrs interface
-func NewMultiply() MultipleCustomErrs {
-	return &customErrs{}
-}
-
-// Wrap is a simplified version of the New function that will create custom error with empty error additional data
-func Wrap(err error, message ErrorMessage) CustomError {
-	return &customErr{
-		path:      DetectPath(skipPackage),
-		message:   message,
-		baggage:   make(ErrorBaggage),
-		nativeErr: err,
-	}
-}
-
-// Wrapf returns an error annotating err with a stack trace
-// at the point Wrapf is called, and the format specifier.
-func Wrapf(err error, format string, args ...interface{}) CustomError {
-	return &customErr{
-		path:      DetectPath(skipPackage),
-		message:   ErrorMessage(fmt.Sprintf(format, args...)),
-		baggage:   make(ErrorBaggage),
-		nativeErr: err,
-	}
+	// Is method is for errors.Is comparison supporting
+	// Compare errors by ErrorType
+	Is(target error) bool
+	// getStack return slice of CustomError that represent error stacktrace
+	getStack(result *[]CustomError)
+	// IsMessageExistInStack represent is error stack contains error with specified message or not
+	IsMessageExistInStack(message ErrorMessage) bool
 }
