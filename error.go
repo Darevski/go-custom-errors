@@ -33,7 +33,7 @@ func NewF(
 // NewBase create custom error with specified message
 // also all error attributes are set to default values
 func NewBase(message ErrorMessage) CustomError {
-	return newCustomErr(DefaultType, make(ErrorBaggage), DefaultLevel, DefaultSeverity, errs.WithStack(errs.New(message.String())))
+	return newCustomErr(DefaultType, make(ErrorBaggage), DefaultLevel, DefaultSeverity, errs.New(message.String()))
 }
 
 // NewBaseF create custom error with error message that formats according to a format specifier
